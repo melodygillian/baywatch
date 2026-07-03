@@ -1,0 +1,42 @@
+name: Update listings
+
+on:
+  schedule:
+    # Every other day at 15:00 UTC (8am Pacific).
+    # ~15 runs/month x 2 API calls = ~30 calls, inside the 50/month free tier.
+    # Want daily updates? Change to "0 15 * * *" (~60 calls/month, small overage).
+    - cron: "0 15 */2 * *"
+  # Lets you trigger a refresh manually from the Actions tab.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch latest listings from RentCast
+        env:
+          RENTCAST_API_KEY: ${{ secrets.RENTCAST_API_KEY }}
+        run: node fetch_listings.mjs
+
+      - name: Commit updated data
+        run: |
+          git config user.name "listing-bot"
+          git config user.email "actions@github.com"
+          git add data/listings.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Update listings ($(date -u +%Y-%m-%d))"
+            git push
+          fi
